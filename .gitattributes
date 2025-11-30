@@ -1,0 +1,8 @@
+# Track model weights with Git LFS (files over 100MB)
+*.pt filter=lfs diff=lfs merge=lfs -text
+*.pth filter=lfs diff=lfs merge=lfs -text
+
+# Specifically track model weights in data/models/
+data/models/*.pt filter=lfs diff=lfs merge=lfs -text
+data/models/*.pth filter=lfs diff=lfs merge=lfs -text
+
