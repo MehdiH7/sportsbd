@@ -1,0 +1,50 @@
+[build-system]
+requires = ["setuptools>=64", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sportsbd"
+version = "0.1.0"
+description = "sportsbd: a 4-class 3D CNN-based shot boundary detection toolkit for sports videos."
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+authors = [
+  { name = "sportsbd contributors" }
+]
+dependencies = [
+  "torch",
+  "torchvision",
+  "numpy<2.0",  # Pin to NumPy 1.x for PyTorch 2.2.2 compatibility
+  "Pillow",
+  "matplotlib",
+  "tqdm",
+]
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.9",
+  "Intended Audience :: Science/Research",
+  "Topic :: Scientific/Engineering :: Artificial Intelligence",
+  "Topic :: Multimedia :: Video",
+  "License :: OSI Approved :: MIT License",
+]
+
+[project.urls]
+Homepage = "https://github.com/mehdih7/sportsbd"
+Source = "https://github.com/mehdih7/sportsbd"
+Issues = "https://github.com/mehdih7/sportsbd/issues"
+
+[project.optional-dependencies]
+dev = [
+  "pytest",
+  "build",
+]
+
+[project.scripts]
+sportsbd = "sportsbd.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["sportsbd*"]
+
+
