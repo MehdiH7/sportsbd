@@ -8,7 +8,7 @@ from urllib.request import urlopen
 
 
 DEFAULT_MODEL_URL = (
-    "https://github.com/mehdih7/sportsbd/releases/download/v0.1.0/best.pt"
+    "https://github.com/MehdiH7/sportsbd/releases/download/v0.1.0/best.pt"
 )
 DEFAULT_MODEL_PATH = Path("data/models/best.pt")
 
