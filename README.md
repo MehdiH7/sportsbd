@@ -102,13 +102,24 @@ print(f"Found {len(detections)} shot boundaries")
 #### CLI – run inference on a video
 
 ```bash
+# Simplest usage - model auto-downloads if needed
 sportsbd infer \
   --video video.mp4 \
-  --checkpoint data/models/best.pt \
+  --out detections.json
+
+# With custom options
+sportsbd infer \
+  --video video.mp4 \
   --threshold 0.7 \
   --stride 4 \
   --t-frames 16 \
   --fps 25 \
+  --out detections.json
+
+# With custom checkpoint path (optional)
+sportsbd infer \
+  --video video.mp4 \
+  --checkpoint path/to/custom.pt \
   --out detections.json
 ```
 

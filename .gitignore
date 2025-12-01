@@ -32,6 +32,8 @@ htmlcov/
 venv/
 env/
 venv
+vnev2/
+venv2
 
 # OS / editor
 .DS_Store

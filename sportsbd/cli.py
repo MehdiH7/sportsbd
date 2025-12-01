@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 import argparse
-from pathlib import Path  # noqa: F401  (kept for potential future use)
+from pathlib import Path
 
 from .device import get_available_device, get_device_name
+from .download import download_model, DEFAULT_MODEL_PATH
 from .inference import (
     run_video_inference,
     save_detections_to_json,
@@ -26,6 +27,18 @@ def cmd_infer(args: argparse.Namespace) -> None:
     else:
         device = get_available_device(prefer=device)
     print(f"[sportsbd] Using device: {get_device_name(device)}")
+
+    # Auto-download model if checkpoint not provided or doesn't exist
+    if checkpoint_path is None:
+        checkpoint_path = str(DEFAULT_MODEL_PATH)
+    
+    checkpoint_path_obj = Path(checkpoint_path)
+    if not checkpoint_path_obj.is_file():
+        print(f"[sportsbd] Model checkpoint not found at {checkpoint_path}")
+        print("[sportsbd] Downloading pre-trained model...")
+        checkpoint_path_obj = download_model(destination=checkpoint_path_obj)
+        checkpoint_path = str(checkpoint_path_obj)
+        print(f"[sportsbd] Model downloaded to {checkpoint_path}")
 
     detections = run_video_inference(
         video_path=video_path,
@@ -51,7 +64,12 @@ def build_parser() -> argparse.ArgumentParser:
     # infer
     infer_p = subparsers.add_parser("infer", help="Run shot boundary detection on a video.")
     infer_p.add_argument("--video", type=str, required=True, help="Path to input video.")
-    infer_p.add_argument("--checkpoint", type=str, required=True, help="Path to model checkpoint (.pt/.pth).")
+    infer_p.add_argument(
+        "--checkpoint",
+        type=str,
+        default=None,
+        help="Path to model checkpoint (.pt/.pth). If not provided, uses default model and auto-downloads if needed.",
+    )
     infer_p.add_argument(
         "--threshold",
         type=float,
