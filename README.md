@@ -129,13 +129,39 @@ Supported devices:
 
 Model weights should be placed in the `data/models/` directory. The repository includes a pre-trained model at `data/models/best.pt` (358MB).
 
-**Note:** Model weights are tracked with Git LFS due to their size. After cloning, run:
-```bash
-git lfs install
-git lfs pull
-```
+There are two ways to obtain the weights:
 
-`sportsbd` expects a PyTorch checkpoint (`.pt`/`.pth`) containing at least:
+- **Option 1 – Clone the repository (Git LFS):**
+  ```bash
+  git clone https://github.com/mehdih7/sportsbd.git
+  cd sportsbd
+  git lfs install
+  git lfs pull  # Downloads data/models/best.pt
+  ```
+
+- **Option 2 – Download via Python helper:**
+  After installing `sportsbd` from PyPI:
+  ```python
+  from sportsbd import download_model, load_model, run_video_inference
+
+  # Download the pre-trained model to data/models/best.pt (default location)
+  checkpoint_path = download_model()
+
+  # Load model
+  model = load_model(checkpoint_path)
+
+  # Run inference as usual
+  detections = run_video_inference(
+      video_path="video.mp4",
+      checkpoint_path=checkpoint_path,
+      threshold=0.7,
+      stride=4,
+      t_frames=16,
+      fps=25,
+  )
+  ```
+
+Internally, `sportsbd` expects a PyTorch checkpoint (`.pt`/`.pth`) containing at least:
 
 - **`state_dict`** – model weights compatible with `torchvision.models.video.r2plus1d_18`
 - **`config`** – a dictionary with at least:
