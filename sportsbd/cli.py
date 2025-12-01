@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import argparse
-from pathlib import Path
+from pathlib import Path  # noqa: F401  (kept for potential future use)
 
+from .device import get_available_device, get_device_name
 from .inference import (
     run_video_inference,
     save_detections_to_json,
@@ -17,6 +18,14 @@ def cmd_infer(args: argparse.Namespace) -> None:
     t_frames = args.t_frames
     fps = args.fps
     out = args.out
+    device = args.device
+
+    # Auto-detect device if not specified
+    if device is None:
+        device = get_available_device()
+    else:
+        device = get_available_device(prefer=device)
+    print(f"[sportsbd] Using device: {get_device_name(device)}")
 
     detections = run_video_inference(
         video_path=video_path,
@@ -25,6 +34,7 @@ def cmd_infer(args: argparse.Namespace) -> None:
         stride=stride,
         t_frames=t_frames,
         fps=fps,
+        device=device,
     )
 
     save_detections_to_json(detections, out)
@@ -42,10 +52,21 @@ def build_parser() -> argparse.ArgumentParser:
     infer_p = subparsers.add_parser("infer", help="Run shot boundary detection on a video.")
     infer_p.add_argument("--video", type=str, required=True, help="Path to input video.")
     infer_p.add_argument("--checkpoint", type=str, required=True, help="Path to model checkpoint (.pt/.pth).")
-    infer_p.add_argument("--threshold", type=float, default=0.7, help="Any-boundary confidence threshold.")
+    infer_p.add_argument(
+        "--threshold",
+        type=float,
+        default=0.7,
+        help="Confidence threshold on the maximum boundary class probability.",
+    )
     infer_p.add_argument("--stride", type=int, default=4, help="Temporal stride (in frames) for sliding window.")
     infer_p.add_argument("--t-frames", type=int, default=16, help="Number of frames per clip.")
     infer_p.add_argument("--fps", type=int, default=25, help="Frame rate for ffmpeg extraction.")
+    infer_p.add_argument(
+        "--device",
+        type=str,
+        default=None,
+        help="Device to use: 'cuda', 'mps', 'cpu', or None for auto-detection (default: auto)",
+    )
     infer_p.add_argument("--out", type=str, required=True, help="Output JSON file for detections.")
     infer_p.set_defaults(func=cmd_infer)
 

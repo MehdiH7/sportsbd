@@ -5,7 +5,7 @@ import math
 import subprocess
 import tempfile
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Sequence, Union
+from typing import Any, Dict, List, Sequence, Union
 
 import numpy as np
 import torch
@@ -14,6 +14,7 @@ from PIL import Image
 from tqdm import tqdm
 
 from .config import DEFAULT_CONFIG
+from .device import get_available_device
 from .model import load_model
 from .transforms import get_frame_transform, normalize_tensor_frame
 
@@ -41,7 +42,7 @@ def _ensure_tensor_frame(frame: FrameLike) -> torch.Tensor:
 def predict_clip(
     frames: Sequence[FrameLike],
     model: torch.nn.Module,
-    device: Union[str, torch.device] = "cuda",
+    device: Union[str, torch.device, None] = None,
 ) -> Dict[str, Any]:
     """
     Run inference on a single clip (sequence of frames).
@@ -55,7 +56,10 @@ def predict_clip(
     if len(frames) == 0:
         raise ValueError("predict_clip requires at least one frame.")
 
-    device = torch.device(device) if isinstance(device, str) else device
+    if device is None:
+        device = get_available_device()
+    elif isinstance(device, str):
+        device = get_available_device(prefer=device)
 
     tensor_frames = [_ensure_tensor_frame(f) for f in frames]
     clip = torch.stack(tensor_frames, dim=0)  # (T, C, H, W)
@@ -82,6 +86,47 @@ def predict_clip(
         "predicted_index": class_index,
         "predicted_class": class_name,
     }
+
+
+def _apply_nms(
+    detections: List[Dict[str, Any]],
+    nms_threshold_frames: int = 8,
+) -> List[Dict[str, Any]]:
+    """
+    Apply non-maximum suppression to remove duplicate detections.
+    
+    If multiple detections occur within nms_threshold_frames, keep only the one
+    with highest confidence.
+    """
+    if not detections:
+        return detections
+    
+    # Sort by frame index
+    sorted_detections = sorted(detections, key=lambda x: x["frame_idx"])
+    
+    filtered: List[Dict[str, Any]] = []
+    i = 0
+    
+    while i < len(sorted_detections):
+        current = sorted_detections[i]
+        filtered.append(current)
+        
+        # Skip all detections within nms_threshold_frames of current
+        j = i + 1
+        while j < len(sorted_detections):
+            if sorted_detections[j]["frame_idx"] - current["frame_idx"] <= nms_threshold_frames:
+                # Within threshold - keep the one with higher confidence
+                if sorted_detections[j]["confidence"] > current["confidence"]:
+                    # Replace current with better detection
+                    filtered[-1] = sorted_detections[j]
+                    current = sorted_detections[j]
+                j += 1
+            else:
+                break
+        
+        i = j
+    
+    return filtered
 
 
 def _extract_frames_with_ffmpeg(
@@ -124,21 +169,27 @@ def run_video_inference(
     stride: int = 4,
     t_frames: int = 16,
     fps: int = DEFAULT_CONFIG.fps,
-    device: Union[str, torch.device] = "cuda",
+    device: Union[str, torch.device, None] = None,
     progress: bool = True,
 ) -> List[Dict[str, Any]]:
     """
     Run sliding-window inference over a full video.
 
     Returns a list of detections:
-      { 'frame_idx', 'timestamp_ms', 'confidence', 'class_probs' }
-    where confidence is the 'any-boundary' probability.
+      { 'frame_idx', 'timestamp_ms', 'confidence', 'class_probs', 'predicted_class' }
+    where confidence is the maximum boundary class probability (hard, fadein, or logo).
+    NaN predictions are automatically filtered out, and non-maximum suppression
+    is applied to remove duplicate detections.
     """
     video_path = Path(video_path)
     checkpoint_path = Path(checkpoint_path)
 
+    if device is None:
+        device = get_available_device()
+    elif isinstance(device, str):
+        device = get_available_device(prefer=device)
+
     model = load_model(checkpoint_path, device=device)
-    device = torch.device(device) if isinstance(device, str) else device
 
     with tempfile.TemporaryDirectory() as tmpdir_str:
         tmpdir = Path(tmpdir_str)
@@ -159,11 +210,21 @@ def run_video_inference(
             frames: List[Image.Image] = [Image.open(p).convert("RGB") for p in window_paths]
             result = predict_clip(frames, model=model, device=device)
 
-            confidence = float(result["any_boundary_prob"])
-            if confidence < threshold:
+            class_probs = result["class_probs"]
+            predicted_index = result["predicted_index"]
+            
+            # Skip if predicted class is NaN (no boundary) - same as checking pred < 3
+            if predicted_index >= 3:  # NaN is index 3
+                continue
+            
+            # Use the maximum probability (max across all classes, including NaN)
+            # This matches the working implementation: max_probs = torch.max(probs, dim=1)
+            max_prob = float(max(class_probs))
+            
+            # Apply threshold to max probability and ensure it's a boundary class (pred < 3)
+            if max_prob < threshold:
                 continue
 
-            class_probs = result["class_probs"]
             # Use the center frame as the representative boundary index
             center_idx = start_idx + t_frames // 2
             timestamp_ms = int(math.floor(center_idx / fps * 1000.0))
@@ -172,11 +233,16 @@ def run_video_inference(
                 {
                     "frame_idx": int(center_idx),
                     "timestamp_ms": timestamp_ms,
-                    "confidence": confidence,
+                    "confidence": max_prob,  # Maximum probability across all classes
                     "class_probs": class_probs,
+                    "predicted_class": result["predicted_class"],
                 }
             )
 
+        # Apply non-maximum suppression to merge nearby detections (within 1 second)
+        # This matches the reference implementation's merge_window_frames = fps * 1.0
+        detections = _apply_nms(detections, nms_threshold_frames=int(fps * 1.0))
+        
         return detections
 
 

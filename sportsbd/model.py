@@ -8,6 +8,7 @@ import torch.nn as nn
 from torchvision.models.video import r2plus1d_18
 
 from .config import DEFAULT_CONFIG
+from .device import get_available_device
 
 
 def _build_model(model_name: str, num_classes: int) -> nn.Module:
@@ -30,15 +31,19 @@ def _load_checkpoint(
 
     checkpoint = torch.load(ckpt_path, map_location=map_location)
 
-    if isinstance(checkpoint, dict) and "state_dict" in checkpoint:
-        state_dict = checkpoint["state_dict"]
+    if isinstance(checkpoint, dict):
+        # Try different common checkpoint key names (in order of preference)
+        if "model_state_dict" in checkpoint:
+            state_dict = checkpoint["model_state_dict"]
+        elif "state_dict" in checkpoint:
+            state_dict = checkpoint["state_dict"]
+        else:
+            # Assume this is a bare state_dict
+            state_dict = checkpoint
+        
         config = checkpoint.get("config", {})
-    elif isinstance(checkpoint, dict):
-        # Assume this is a bare state_dict
-        state_dict = checkpoint
-        config = {}
     else:
-        raise ValueError("Checkpoint must be a dict containing a 'state_dict' or be a state_dict itself.")
+        raise ValueError("Checkpoint must be a dict containing a 'state_dict'/'model_state_dict' or be a state_dict itself.")
 
     if not isinstance(config, dict):
         raise ValueError("Checkpoint 'config' must be a dict if provided.")
@@ -48,16 +53,27 @@ def _load_checkpoint(
 
 def load_model(
     checkpoint_path: str | Path,
-    device: str | torch.device = "cuda",
+    device: str | torch.device | None = None,
 ) -> nn.Module:
     """
     Load an r2plus1d_18 model from a checkpoint.
 
     The checkpoint is expected to contain at least:
-      - 'state_dict': model weights
+      - 'model_state_dict' or 'state_dict': model weights
       - 'config': dict with MODEL_NAME and NUM_CLASSES (optional; defaults applied)
+    
+    Args:
+        checkpoint_path: Path to the checkpoint file.
+        device: Device to load model on. If None, automatically selects the best
+                available (cuda > mps > cpu). Can be "cuda", "mps", "cpu",
+                or a torch.device.
     """
-    map_location = torch.device(device) if isinstance(device, str) else device
+    if device is None:
+        device = get_available_device()
+    elif isinstance(device, str):
+        device = get_available_device(prefer=device)
+    
+    map_location = device
     state_dict, config = _load_checkpoint(checkpoint_path, map_location=map_location)
 
     model_name = config.get("MODEL_NAME", DEFAULT_CONFIG.model_name)
