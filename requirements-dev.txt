@@ -1,0 +1,9 @@
+# Development dependencies for sportsbd
+# Includes runtime dependencies + development tools
+
+-r requirements.txt
+
+# Development tools
+pytest
+build
+

@@ -1,0 +1,8 @@
+# Runtime dependencies for sportsbd
+torch
+torchvision
+numpy<2.0  # Pin to NumPy 1.x for PyTorch 2.2.2 compatibility
+Pillow
+matplotlib
+tqdm
+

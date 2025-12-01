@@ -19,12 +19,29 @@ pip install sportsbd
 
 Or from source:
 
+**Option 1: Install as a package (recommended)**
 ```bash
 git clone https://github.com/mehdih7/sportsbd.git
 cd sportsbd
 git lfs install  # Install Git LFS (required for model weights)
 git lfs pull     # Download model weights
 pip install .
+```
+
+**Option 2: Install dependencies only**
+```bash
+git clone https://github.com/mehdih7/sportsbd.git
+cd sportsbd
+git lfs install
+git lfs pull
+pip install -r requirements.txt
+# Then use: python -m sportsbd.cli or add sportsbd/ to PYTHONPATH
+```
+
+**For development:**
+```bash
+pip install -r requirements-dev.txt
+pip install -e .  # Install in editable mode
 ```
 
 ### Quickstart
