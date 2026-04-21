@@ -4,20 +4,34 @@ Device detection utilities for automatic GPU/CPU selection.
 
 from __future__ import annotations
 
+import importlib
+
 import torch
 
 
-def get_available_device(prefer: str | None = None) -> torch.device:
+def _has_torch_neuronx() -> bool:
+    """Return True if torch_neuronx appears importable."""
+    try:
+        importlib.import_module("torch_neuronx")
+    except ImportError:
+        return False
+    return True
+
+
+def get_available_device(prefer: str | None = None) -> torch.device | str:
     """
     Automatically detect and return the best available device.
     
     Priority order: cuda > mps > cpu.
     
     Args:
-        prefer: Optional device preference ("cuda", "mps", "cpu", or None for auto).
+        prefer: Optional device preference ("cuda", "mps", "cpu", "neuron",
+                or None for auto).
     
     Returns:
-        torch.device: The best available device.
+        torch.device | str: The best available device. Returns the string
+        "neuron" only when explicitly preferred and torch_neuronx appears
+        importable.
     """
     # Respect explicit user preference first
     if prefer is not None:
@@ -28,6 +42,8 @@ def get_available_device(prefer: str | None = None) -> torch.device:
             return torch.device("mps")
         if prefer == "cpu":
             return torch.device("cpu")
+        if prefer == "neuron" and _has_torch_neuronx():
+            return "neuron"
         # If preferred device is not available, fall through to auto-detection.
     
     # Auto-detect: try CUDA first
@@ -53,6 +69,8 @@ def get_device_name(device: torch.device | str) -> str:
         str: Human-readable device name
     """
     if isinstance(device, str):
+        if device.lower() == "neuron":
+            return "AWS Neuron (experimental)"
         device = torch.device(device)
     
     if device.type == "cuda":
