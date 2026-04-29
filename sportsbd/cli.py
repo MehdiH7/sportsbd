@@ -83,7 +83,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--device",
         type=str,
         default=None,
-        help="Device to use: 'cuda', 'mps', 'cpu', or None for auto-detection (default: auto)",
+        help="Device to use: 'cuda', 'mps', 'cpu', or experimental 'neuron', or None for auto-detection (default: auto)",
     )
     infer_p.add_argument("--out", type=str, required=True, help="Output JSON file for detections.")
     infer_p.set_defaults(func=cmd_infer)

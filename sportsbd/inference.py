@@ -65,9 +65,14 @@ def predict_clip(
     clip = torch.stack(tensor_frames, dim=0)  # (T, C, H, W)
     clip = clip.permute(1, 0, 2, 3).unsqueeze(0)  # (1, C, T, H, W)
 
-    clip = clip.to(device)
-    model = model.to(device)
     model.eval()
+    if isinstance(device, str) and device.lower() == "neuron":
+        # Traced torch-neuronx ScriptModules consume CPU tensors and handle
+        # NeuronCore transfers internally.
+        pass
+    else:
+        clip = clip.to(device)
+        model = model.to(device)
 
     with torch.no_grad():
         logits = model(clip)  # (1, num_classes)

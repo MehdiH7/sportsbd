@@ -9,6 +9,7 @@ from torchvision.models.video import r2plus1d_18
 
 from .config import DEFAULT_CONFIG
 from .device import get_available_device
+from .neuron import trace_neuron_model
 
 
 def _build_model(model_name: str, num_classes: int) -> nn.Module:
@@ -68,12 +69,17 @@ def load_model(
                 available (cuda > mps > cpu). Can be "cuda", "mps", "cpu",
                 or a torch.device.
     """
+    use_neuron = False
     if device is None:
         device = get_available_device()
     elif isinstance(device, str):
-        device = get_available_device(prefer=device)
+        if device.lower() == "neuron":
+            use_neuron = True
+            device = "neuron"
+        else:
+            device = get_available_device(prefer=device)
     
-    map_location = device
+    map_location = torch.device("cpu") if use_neuron else device
     state_dict, config = _load_checkpoint(checkpoint_path, map_location=map_location)
 
     model_name = config.get("MODEL_NAME", DEFAULT_CONFIG.model_name)
@@ -112,6 +118,8 @@ def load_model(
 
     model.to(map_location)
     model.eval()
+    if use_neuron:
+        return trace_neuron_model(model, config)
     return model
 
 
